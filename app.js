@@ -1,44 +1,38 @@
-import { addDays, addMonths, dayLabel, daySummary, history, ledger, money, monthLabel, monthSummary, parseAmount, percent, reportStats, selectMonth, shortDate, symbol, tone, today, tradeNet } from './domain.js';
-import { applyMt5Report1514697145 } from './imports/report-1514697145.js';
-import { applyMt5Report1514656031 } from './imports/report-1514656031.js';
+import { addDays, addMonths, dayLabel, daySummary, history, ledger, money, monthLabel, monthSummary, parseAmount, percent, selectMonth, shortDate, symbol, tone, today, tradeNet } from './domain.js';
+import { esc } from './html.js';
+import { tradeFields, bindTradeNet, tradeFromForm } from './trade-form.js';
+import { reportView } from './report-view.js';
+import { createStorage, loadState } from './storage.js';
+import { installViewport } from './viewport.js';
 
-const KEY = 'fondeo.app.v2';
+const storage = createStorage(localStorage, sessionStorage, navigator.locks);
 const NAV = ['daily', 'monthly', 'report', 'journal', 'accounts'];
 const NAV_LABELS = { daily: 'Diario', monthly: 'Mensual', report: 'Informe', journal: 'Bitácora', accounts: 'Cuentas' };
-const seed = {
-  accounts: [{ id: 'demo-42195235', number: '42195235', initial: 10438.64, currency: 'EUR', firm: 'Lucid', cost: 80, created: '2026-09-01', type: 'PRO' }],
-  manual: { 'demo-42195235': {} },
-  trades: [
-    ['13',83.82,'Compra','XAUUSD'],['14',62.45,'Venta','NASDAQ'],['15',114.13,'Compra','XAUUSD'],['16',-35.13,'Venta','EURUSD'],['17',-57.54,'Compra','NASDAQ'],['18',88.12,'Venta','XAUUSD'],['19',112.57,'Compra','NASDAQ']
-  ].map(([day,profit,direction,tradeSymbol],index)=>({id:`demo-trade-${day}`,accountId:'demo-42195235',date:`2026-09-${day}`,openedAt:`2026-09-${day}T09:00`,closedAt:`2026-09-${day}T${10+index%3}:30`,symbol:tradeSymbol,direction,size:1,entry:100+index,closePrice:direction==='Compra'?101+index:99+index,sl:direction==='Compra'?99+index:101+index,tp:direction==='Compra'?102+index:98+index,grossProfit:profit,commission:0,swap:0,profit,note:''})),
-  accountId: 'demo-42195235', view: 'daily', date: today(), month: today().slice(0, 7), dailyAnchor: today(), monthAnchor: today().slice(0, 7), loadedDays: 9, loadedMonths: 7, historyMonth: null, accountsMode: 'history'
-};
+
 let state;
 const app = document.querySelector('#app');
-const dialog = document.querySelector('#dialog');
+installViewport(app);
 const notice = document.querySelector('#notice');
 
-const esc = value => String(value ?? '').replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[char]));
 const active = () => state.accounts.find(account => account.id === state.accountId) || state.accounts[0] || null;
-const dataFor = () => ({ accounts: state.accounts, manual: state.manual, trades: state.trades });
-const load = () => { try { const saved = JSON.parse(localStorage.getItem(KEY)); return Array.isArray(saved?.accounts) ? { ...seed, ...saved, dailyAnchor:saved.dailyAnchor || saved.date, monthAnchor:saved.monthAnchor || saved.month } : structuredClone(seed); } catch { return structuredClone(seed); } };
+const dataFor = () => ({ accounts: state.accounts, trades: state.trades });
+
 let cachedBook = null;
-const save = () => { cachedBook = null; localStorage.setItem(KEY, JSON.stringify(state)); };
+const save = (dataChanged = false) => {
+  storage.writeView(state);
+  if (!dataChanged) return;
+  cachedBook=null;
+  return storage.write(state).catch(error=>{
+    storage.restoreData(state);
+    throw error;
+  });
+};
 let noticeTimer;
 const showNotice = text => {
-  const form = dialog.open && dialog.querySelector('form');
-  if (form) {
-    let message = form.querySelector('[data-form-notice]');
-    if (!message) { message=document.createElement('p'); message.dataset.formNotice=''; message.setAttribute('role','status'); form.append(message); }
-    message.textContent = text;
-    return;
-  }
   clearTimeout(noticeTimer); notice.textContent=text; notice.hidden=false;
-  noticeTimer=setTimeout(()=>{notice.hidden=true;},2600);
+  if (!text.includes('otra pestaña')) noticeTimer=setTimeout(()=>{notice.hidden=true;},2600);
 };
-state = load();
-const importedMt5Report50k=applyMt5Report1514697145(state);
-const importedMt5Report100k=applyMt5Report1514656031(state);
+state = await loadState(storage);
 state.dailyAnchor ||= state.date || today();
 state.monthAnchor ||= state.month || state.dailyAnchor.slice(0, 7);
 if (state.date > today()) state.date = today();
@@ -49,8 +43,12 @@ state.loadedMonths = Math.min(60, Math.max(7, Number(state.loadedMonths) || 7));
 state.month = state.date.slice(0, 7);
 // A saved scroll window must not leave today's card outside Diario on startup.
 if (state.view === 'daily') state.dailyAnchor = today();
-if (importedMt5Report50k||importedMt5Report100k) save();
-const book = () => { const account = active(); return account ? (cachedBook ||= ledger(account, dataFor())) : []; };
+const book = () => {
+  const account = active();
+  if (!account) return [];
+  if (cachedBook?.accountId !== account.id) cachedBook = {accountId:account.id, days:ledger(account,dataFor())};
+  return cachedBook.days;
+};
 const day = () => { const account = active(); return account ? daySummary(account, book(), state.date) : null; };
 const toneFor = value => tone(value);
 const metric = (label, value, className) => '<div class="metric"><span>' + label + '</span>' + (String(value).trim().startsWith('<') ? value : '<strong class="' + (className || 'positive') + '">' + value + '</strong>') + '</div>';
@@ -73,7 +71,7 @@ function viewContent(context = state) {
   try {
     const account = active();
     if (state.view === 'accounts') return accountsView(account);
-    return account ? (state.view === 'daily' ? dailyView(account) : state.view === 'monthly' ? monthlyView(account) : state.view === 'journal' ? journalView(account) : reportView()) : emptyState();
+    return account ? (state.view === 'daily' ? dailyView(account) : state.view === 'monthly' ? monthlyView(account) : state.view === 'journal' ? journalView(account) : reportView(account,dataFor())) : emptyState();
   } finally { state = previous; }
 }
 
@@ -148,7 +146,7 @@ function monthlyView(account) {
 function monthlyDetail(account) {
   const item = monthSummary(account, book(), state.month);
   const expected = item.expected === null ? '-- ' + symbol(account.currency) : money(item.expected, account.currency, false);
-  return '<section class="detail-panel"><div class="detail-heading"><h2>DESGLOSE ' + esc(monthLabel(state.month).toUpperCase()) + '</h2><button class="icon-button" data-open-history="' + state.month + '" aria-label="Ver historial del mes">◉</button></div><div class="metrics">' +
+  return '<section class="detail-panel"><div class="detail-heading"><h2>DESGLOSE ' + esc(monthLabel(state.month).toUpperCase()) + '</h2><button class="icon-button" data-open-journal-month="' + state.month + '" aria-label="Ver operaciones del mes en Bitácora">◉</button></div><div class="metrics">' +
     metric('CAPITAL INICIAL', money(item.start, account.currency, false)) + metric('BENEFICIO ESPERABLE', expected, toneFor(item.expected)) +
     metric('BENEFICIO DEL MES', item.profit === null ? '-- ' + symbol(account.currency) : money(item.profit, account.currency, false), toneFor(item.profit)) +
     metric('PORCENTAJE ESPERABLE', item.expectedPercent === null ? '-- %' : percent(item.expectedPercent), toneFor(item.expectedPercent)) +
@@ -168,7 +166,7 @@ function journalView(account) {
     return heading + tradeRow(trade);
   }).join('');
   return '<div class="view journal-view"><div class="journal-scroll"><div class="journal-title"><div><h1>BITÁCORA</h1><p>' + esc(monthly ? monthLabel(state.month) : labelDate(state.date)) + '</p></div><button class="primary-button" data-add-trade>+ Operación</button></div>' +
-    (trades.length ? rows : '<div class="empty-card"><strong>No hay operaciones para este ' + (monthly ? 'mes' : 'día') + '</strong><span>Añade una operación y Diario usará su resultado automáticamente.</span><button class="primary-button" data-add-trade>Añadir operación</button></div>') + '</div></div>';
+    '<div class="journal-entries">' + (trades.length ? rows : '<div class="empty-card"><strong>No hay operaciones para este ' + (monthly ? 'mes' : 'día') + '</strong><span>Añade una operación y Diario usará su resultado automáticamente.</span><button class="primary-button" data-add-trade>Añadir operación</button></div>') + '</div></div></div>';
 }
 
 function tradeRow(trade) {
@@ -177,41 +175,8 @@ function tradeRow(trade) {
   return '<article class="trade-row' + (expanded?' expanded':'') + '" data-trade-id="' + esc(trade.id) + '"><button type="button" class="trade-row-summary" data-edit-trade="' + esc(trade.id) + '" aria-expanded="' + expanded + '"><span><strong>' + esc(trade.symbol) + ' · ' + esc(trade.direction) + '</strong><small>' + esc(open) + '–' + esc(close) + ' · Entrada ' + esc(trade.entry) + ' · Cierre ' + esc(trade.closePrice ?? '—') + '</small><small>Posición ' + esc(trade.size) + ' · Comisión ' + money(Number(trade.commission)||0,active().currency,false) + ' · Swap ' + money(Number(trade.swap)||0,active().currency,false) + '</small></span><b class="' + toneFor(net) + '">' + money(net, active().currency, true) + '</b></button>' + (expanded?tradeEditForm(trade):'') + '</article>';
 }
 
-function tradeFields(trade,account) {
-  const option=direction=>'<option' + (trade.direction===direction?' selected':'') + '>' + direction + '</option>';
-  const value=name=>esc(trade[name] ?? '');
-  return '<div class="form-grid">'+
-    '<label class="wide">Apertura<input type="datetime-local" name="openedAt" value="'+value('openedAt')+'" required></label><label class="wide">Cierre<input type="datetime-local" name="closedAt" value="'+value('closedAt')+'" required></label>'+
-    '<label>Símbolo<input name="symbol" value="'+value('symbol')+'" required placeholder="XAUUSD"></label><label>Dirección<select name="direction" required>'+option('Compra')+option('Venta')+'</select></label>'+
-    '<label>Tamaño posición<input name="size" value="'+value('size')+'" required inputmode="decimal"></label><label>Precio entrada<input name="entry" value="'+value('entry')+'" required inputmode="decimal"></label><label>Precio cierre<input name="closePrice" value="'+value('closePrice')+'" required inputmode="decimal"></label>'+
-    '<label>Stop loss<input name="sl" value="'+value('sl')+'" required inputmode="decimal"></label><label>Take profit<input name="tp" value="'+value('tp')+'" required inputmode="decimal"></label>'+
-    '<label>Beneficio bruto ('+symbol(account.currency)+')<input name="grossProfit" value="'+value('grossProfit')+'" required inputmode="decimal"></label><label>Comisión ('+symbol(account.currency)+')<input name="commission" value="'+value('commission')+'" required inputmode="decimal"></label><label>Swap ('+symbol(account.currency)+')<input name="swap" value="'+value('swap')+'" required inputmode="decimal"></label>'+
-    '<label class="wide net-field">Beneficio neto ('+symbol(account.currency)+')<input name="netProfit" readonly value="'+money(tradeNet(trade),account.currency,false)+'"></label><label class="wide">Nota<textarea name="note" rows="2">'+esc(trade.note||'')+'</textarea></label></div>';
-}
-
 function tradeEditForm(trade) {
   return '<form class="trade-edit-form" data-trade-edit-form="'+esc(trade.id)+'">'+tradeFields(trade,active())+'<p data-trade-edit-notice role="status" hidden></p><button class="primary-button wide" data-save-trade>Guardar cambios</button></form>';
-}
-
-function bindTradeNet(form,account) {
-  const update=()=>{try{const values=['grossProfit','commission','swap'].map(name=>parseAmount(form.elements[name].value));form.elements.netProfit.value=values.some(value=>value===null)?'--':money(values.reduce((sum,value)=>sum+value,0),account.currency,false);}catch{form.elements.netProfit.value='--';}};
-  ['grossProfit','commission','swap'].forEach(name=>form.elements[name].addEventListener('input',update));
-  update();
-}
-
-function tradeFromForm(form) {
-  const entry=parseAmount(form.elements.entry.value), closePrice=parseAmount(form.elements.closePrice.value), tp=parseAmount(form.elements.tp.value), sl=parseAmount(form.elements.sl.value), size=parseAmount(form.elements.size.value);
-  const grossProfit=parseAmount(form.elements.grossProfit.value), commission=parseAmount(form.elements.commission.value), swap=parseAmount(form.elements.swap.value);
-  if ([entry,closePrice,tp,sl,grossProfit,commission,swap].some(value=>value===null)) throw new Error('Completa todos los datos numéricos.');
-  if (size===null||size<=0) throw new Error('El tamaño de la posición debe ser mayor que cero.');
-  const openedAt=form.elements.openedAt.value, closedAt=form.elements.closedAt.value;
-  if (!openedAt||!closedAt||new Date(closedAt)<=new Date(openedAt)) throw new Error('El cierre debe ser posterior a la apertura.');
-  const tradeSymbol=form.elements.symbol.value.trim().slice(0,30);
-  if (!tradeSymbol) throw new Error('Introduce el símbolo operado.');
-  const direction=form.elements.direction.value, movement=(closePrice-entry)*(direction==='Venta'?-1:1);
-  if (movement!==0&&grossProfit!==0&&Math.sign(movement)!==Math.sign(grossProfit)) throw new Error('El signo del beneficio no coincide con la dirección y los precios.');
-  const profit=(Math.round(grossProfit*100)+Math.round(commission*100)+Math.round(swap*100))/100;
-  return {date:closedAt.slice(0,10),openedAt,closedAt,symbol:tradeSymbol,direction,entry,closePrice,size,tp,sl,grossProfit,commission,swap,profit,note:form.elements.note.value.trim().slice(0,500)};
 }
 
 function accountsView(account) {
@@ -253,79 +218,8 @@ function accountHistory(account) {
   return [...grouped.keys()].sort().map(month => '<section class="history-month" id="history-' + month + '"><h2>' + esc(monthLabel(month)) + '</h2>' + grouped.get(month).sort((a, b) => a.date.localeCompare(b.date)).map(item => historyRow(item, account)).join('') + '</section>').join('');
 }
 function historyRow(item, account) {
-  if (item.type === 'created') return '<article class="account-history-card created-event"><time>' + esc(shortDate(item.date)) + '</time><span>Creada cuenta de <strong>' + esc(account.initial.toLocaleString('es-ES',{maximumFractionDigits:2})) + ' ' + symbol(account.currency) + '</strong> en ' + esc(account.firm) + ' por ' + money(account.cost, account.currency, false) + '</span></article>';
-  const fullPercent = item.percentage === null ? '-- %' : (item.percentage > 0 ? '+' : '') + percent(item.percentage);
-  const symbolText = item.type === 'trade' ? '<small> en ' + esc(item.symbol || '—') + '</small>' : '';
-  return '<article class="account-history-card" data-history-result><time>' + esc(shortDate(item.date)) + '</time><span class="history-performance ' + toneFor(item.profit) + '"><span>' + money(item.profit, account.currency, true) + symbolText + ' [' + fullPercent + ']</span><i aria-hidden="true">|</i><strong>' + money(item.end, account.currency, false) + '</strong></span></article>';
+  return '<article class="account-history-card created-event"><time>' + esc(shortDate(item.date)) + '</time><span>Creada cuenta de <strong>' + esc(account.initial.toLocaleString('es-ES',{maximumFractionDigits:2})) + ' ' + symbol(account.currency) + '</strong> en ' + esc(account.firm) + ' por ' + money(account.cost, account.currency, false) + '</span></article>';
 }
-const compactNumber = value => value === null || !Number.isFinite(value) ? (value === Infinity ? '∞' : '--') : new Intl.NumberFormat('es-ES',{maximumFractionDigits:2}).format(value);
-function durationText(milliseconds) {
-  if (milliseconds === null || !Number.isFinite(milliseconds)) return '--';
-  const minutes=Math.round(milliseconds/60000), days=Math.floor(minutes/1440), hours=Math.floor(minutes%1440/60), rest=minutes%60;
-  return [days?`${days} d`:'',hours?`${hours} h`:'',rest||(!days&&!hours)?`${rest} min`:''].filter(Boolean).join(' ');
-}
-function reportCard(label,value,className='neutral',secondary='') {
-  return '<article class="report-metric-card"><span>' + label + '</span><strong class="' + className + '">' + value + '</strong>' + (secondary?'<small>'+secondary+'</small>':'') + '</article>';
-}
-function reportSection(title,cards) { return '<section class="report-section"><h2>' + title + '</h2><div class="report-grid">' + cards.join('') + '</div></section>'; }
-function balanceChart(stats) {
-  if (!stats.curve.length) return '<div class="report-chart-empty">Aún no hay días operados</div>';
-  const width=600,height=190,padLeft=62,padRight=12,padTop=10,padBottom=26;
-  const balances=stats.curve.map(point=>point.balance), low=Math.min(...balances), high=Math.max(...balances), span=Math.max(1,high-low);
-  const rawStep=span/4, magnitude=10**Math.floor(Math.log10(rawStep)), residual=rawStep/magnitude;
-  const step=(residual<=1?1:residual<=2?2:residual<=5?5:10)*magnitude;
-  let min=Math.floor(low/step)*step, max=Math.ceil(high/step)*step;
-  if (Math.abs(low-min)<step/1000) min-=step;
-  if (min===max) { min-=step; max+=step; }
-  const points=stats.curve.map((point,index)=>({
-    x:stats.curve.length===1?(padLeft+width-padRight)/2:padLeft+index*(width-padLeft-padRight)/(stats.curve.length-1),
-    y:padTop+(max-point.balance)/(max-min)*(height-padTop-padBottom),
-    ...point,
-  }));
-  const ticks=[]; for(let value=min;value<=max+step/2&&ticks.length<12;value+=step) ticks.push(value);
-  const formatAxis=value=>new Intl.NumberFormat('es-ES',{maximumFractionDigits:Math.abs(step)<1?2:0}).format(value);
-  const horizontal=ticks.map(value=>{const y=padTop+(max-value)/(max-min)*(height-padTop-padBottom);return `<line x1="${padLeft}" y1="${y}" x2="${width-padRight}" y2="${y}"/>`;}).join('');
-  const vertical=points.map(point=>`<line x1="${point.x}" y1="${padTop}" x2="${point.x}" y2="${height-padBottom}"/>`).join('');
-  const yLabels=ticks.map(value=>{const y=padTop+(max-value)/(max-min)*(height-padTop-padBottom);return `<text x="${padLeft-8}" y="${y+4}" text-anchor="end">${formatAxis(value)}</text>`;}).join('');
-  const labelEvery=Math.max(1,Math.ceil(points.length/16));
-  const xLabels=points.map((point,index)=>(index%labelEvery===0||index===points.length-1)?`<text x="${point.x}" y="${height-7}" text-anchor="middle">${index+1}</text>`:'').join('');
-  return '<svg class="balance-chart" viewBox="0 0 '+width+' '+height+'" role="img" aria-label="Curva diaria de balance"><g class="chart-grid">'+horizontal+vertical+'</g><g class="chart-axes"><line x1="'+padLeft+'" y1="'+padTop+'" x2="'+padLeft+'" y2="'+(height-padBottom)+'"/><line x1="'+padLeft+'" y1="'+(height-padBottom)+'" x2="'+(width-padRight)+'" y2="'+(height-padBottom)+'"/></g><polyline points="'+points.map(point=>`${point.x},${point.y}`).join(' ')+'"/><g class="chart-y-labels">'+yLabels+'</g><g class="chart-x-labels">'+xLabels+'</g></svg>';
-}
-function reportView() {
-  const account=active(), stats=reportStats(account,dataFor());
-  const cash=value=>money(value,account.currency,false), magnitude=value=>money(value===null?null:Math.abs(value),account.currency,false), signed=value=>money(value,account.currency,true), pc=value=>percent(value);
-  const best=stats.days.best, worst=stats.days.worst;
-  return '<div class="view report-view"><div class="report-scroll"><header class="report-heading"><h1>RESUMEN DE LA CUENTA</h1></header>'+
-    '<section class="report-summary"><span>BALANCE ACTUAL</span><strong class="'+toneFor(stats.netProfit)+'">'+cash(stats.balance)+'</strong><div class="'+toneFor(stats.netProfit)+'">'+signed(stats.netProfit)+' <i>/</i> '+percent(stats.returnPercent,true)+'</div></section>'+
-    '<section class="report-chart-card"><div><h2>CURVA DE BALANCE</h2><span>'+stats.totalTrades+' operaciones en '+stats.days.total+' días</span></div>'+balanceChart(stats)+'</section>'+
-    reportSection('RESULTADOS Y COSTES',[
-      reportCard('BRUTO POSITIVO',magnitude(stats.grossProfit),'positive'),reportCard('BRUTO NEGATIVO',magnitude(stats.grossLoss),'negative'),
-      reportCard('COMISIONES',magnitude(stats.commissions),'negative'),reportCard('SWAPS',magnitude(stats.swap),'negative'),
-      reportCard('COSTES TOTALES',magnitude(stats.costs),'negative'),reportCard('BENEFICIO ESPERADO',magnitude(stats.expectancy),toneFor(stats.expectancy)),
-    ])+
-    reportSection('RENDIMIENTO DE LAS OPERACIONES',[
-      reportCard('PROFIT FACTOR',compactNumber(stats.profitFactor),toneFor((stats.profitFactor??1)-1)),reportCard('DRAWDOWN MÁXIMO',magnitude(stats.maxDrawdown.amount),'negative',pc(stats.maxDrawdown.percent)),
-      reportCard('GANADORAS',String(stats.winningTrades),'positive'),reportCard('PERDEDORAS',String(stats.losingTrades),stats.losingTrades?'negative':'neutral'),
-      reportCard('TASA DE ACIERTO',pc(stats.winRate),toneFor((stats.winRate??50)-50)),reportCard('MAYOR GANADORA',cash(stats.largestWin),toneFor(stats.largestWin)),
-      reportCard('MAYOR PERDEDORA',magnitude(stats.largestLoss),toneFor(stats.largestLoss)),reportCard('MEDIA GANADORAS',cash(stats.averageWin),toneFor(stats.averageWin)),
-      reportCard('MEDIA PERDEDORAS',magnitude(stats.averageLoss),toneFor(stats.averageLoss)),reportCard('OPERACIONES',String(stats.totalTrades),'neutral'),
-    ])+
-    reportSection('COMPRAS Y VENTAS',[
-      reportCard('COMPRAS',String(stats.buys.count),'neutral',pc(stats.buys.winRate)+' GANADORAS'),reportCard('VENTAS',String(stats.sells.count),'neutral',pc(stats.sells.winRate)+' GANADORAS'),
-      reportCard('NETO COMPRAS',magnitude(stats.buys.netProfit),toneFor(stats.buys.netProfit)),reportCard('NETO VENTAS',magnitude(stats.sells.netProfit),toneFor(stats.sells.netProfit)),
-    ])+
-    reportSection('RACHAS',[
-      reportCard('MAYOR RACHA GANADORA',String(stats.winningStreak.count),stats.winningStreak.count?'positive':'neutral',signed(stats.winningStreak.profit)),
-      reportCard('MAYOR RACHA PERDEDORA',String(stats.losingStreak.count),stats.losingStreak.count?'negative':'neutral',signed(stats.losingStreak.profit)),
-    ])+
-    reportSection('TIEMPO Y DÍAS',[
-      reportCard('DURACIÓN MEDIA',durationText(stats.duration.average),'neutral'),reportCard('OPERACIÓN MÁS LARGA',durationText(stats.duration.longest),'neutral'),
-      reportCard('OPERACIÓN MÁS CORTA',durationText(stats.duration.shortest),'neutral'),reportCard('DÍAS OPERADOS',String(stats.days.total),'neutral'),
-      reportCard('DÍAS POSITIVOS',String(stats.days.positive),'positive'),reportCard('DÍAS NEGATIVOS',String(stats.days.negative),stats.days.negative?'negative':'neutral'),
-      reportCard('MEJOR DÍA',best?magnitude(best.profit):cash(null),toneFor(best?.profit),best?shortDate(best.date):''),reportCard('PEOR DÍA',worst?magnitude(worst.profit):cash(null),toneFor(worst?.profit),worst?shortDate(worst.date):''),
-    ])+'</div></div>';
-}
-
 function bindDynamic() {
   document.querySelectorAll('[data-select-date]').forEach(button => button.addEventListener('click', () => selectDate(button.dataset.selectDate)));
   document.querySelectorAll('[data-select-month]').forEach(button => button.addEventListener('click', () => selectMonthCard(button.dataset.selectMonth)));
@@ -361,27 +255,45 @@ function bindDynamic() {
     screen.addEventListener('click', suppressSwipeClick, true);
   }
 }
+// Serialize accordion actions so rapid taps cannot insert duplicate editors.
+let journalActions = Promise.resolve();
+function queueJournalAction(action) {
+  journalActions = journalActions.then(action).catch(error=>showNotice(error.message));
+}
 function bindJournalControls(root) {
-  root.querySelectorAll('[data-add-trade]').forEach(button => button.addEventListener('click', openTrade));
-  root.querySelectorAll('[data-edit-trade]').forEach(button => button.addEventListener('click', () => toggleTradeEditor(button)));
-  root.querySelectorAll('[data-trade-edit-form]').forEach(bindTradeEditForm);
+  const journal=root.matches?.('.journal-view')?root:root.querySelector('.journal-view');
+  if (!journal || journal.dataset.bound) return;
+  journal.dataset.bound='true';
+  journal.addEventListener('click',event=>{
+    const add=event.target.closest('[data-add-trade]');
+    const edit=event.target.closest('[data-edit-trade]');
+    const close=event.target.closest('[data-close-new-trade]');
+    if (add) queueJournalAction(()=>add.isConnected && openTrade());
+    else if (edit) queueJournalAction(()=>edit.isConnected && toggleTradeEditor(edit));
+    else if (close) queueJournalAction(()=>close.isConnected && closeTradeEditor(close.closest('.trade-row'),close.closest('form')));
+  });
+  journal.querySelectorAll('[data-trade-edit-form]').forEach(bindTradeEditForm);
 }
 function bindTradeEditForm(form) {
   bindTradeNet(form,active());
   form.addEventListener('submit',async event=>{
     event.preventDefault();
+    if (form.dataset.saving) return;
     const trade=state.trades.find(item=>item.id===form.dataset.tradeEditForm&&item.accountId===active()?.id);
     if(!trade) return;
     try {
-      const changes=tradeFromForm(form);
+      const changes=tradeFromForm(form,trade);
+      form.dataset.saving='true';
       Object.assign(trade,changes);
       state.date=changes.date;
       state.month=changes.date.slice(0,7);
       editingTradeId=null;
-      save();
+      await save(true);
+      const journal=form.closest('.journal-view');
       await closeTradeEditor(form.closest('.trade-row'),form);
-      refreshJournal();
+      if (journal?.isConnected) refreshJournal();
     } catch(error) {
+      delete form.dataset.saving;
       const message=form.querySelector('[data-trade-edit-notice]');
       message.textContent=error.message;
       message.hidden=false;
@@ -397,12 +309,13 @@ async function toggleTradeEditor(button) {
     return;
   }
   const currentForm=card.querySelector('[data-trade-edit-form]');
+  if (currentForm?.dataset.saving) return;
   if(currentForm) {
     editingTradeId=null;
     await closeTradeEditor(card,currentForm);
     return;
   }
-  const openForm=document.querySelector('[data-trade-edit-form]');
+  const openForm=document.querySelector('[data-trade-edit-form], [data-new-trade-form]');
   if(openForm) await closeTradeEditor(openForm.closest('.trade-row'),openForm);
   const trade=state.trades.find(item=>item.id===button.dataset.editTrade&&item.accountId===active()?.id);
   if(!trade||!card.isConnected) return;
@@ -425,6 +338,7 @@ async function closeTradeEditor(card,form) {
   await animateTradeEditor(card,form,false);
   form.remove();
   card.classList.remove('expanded');
+  if (card.hasAttribute('data-new-trade')) card.remove();
   if(editingTradeId===card.dataset.tradeId) editingTradeId=null;
 }
 async function animateTradeEditor(card,form,opening) {
@@ -438,6 +352,9 @@ async function animateTradeEditor(card,form,opening) {
   const completion=animation.finished.catch(()=>{});
   tradeAnimationPromises.set(card,completion);
   await completion;
+  // Return to natural height; retained fill would clip validation messages.
+  if (!opening) form.hidden=true;
+  animation.cancel();
   if(tradeAnimationPromises.get(card)===completion) {
     tradeAnimationPromises.delete(card);
     form.style.overflow='';
@@ -448,13 +365,24 @@ function refreshJournal(focusTradeId=null) {
   if(state.view!=='journal') return;
   const current=document.querySelector('.journal-view');
   if(!current) return;
-  const scroll=current.querySelector('.journal-scroll')?.scrollTop||0;
-  current.outerHTML=journalView(active());
-  const next=document.querySelector('.journal-view');
-  bindJournalControls(next);
-  const list=next.querySelector('.journal-scroll');
+  const list=current.querySelector('.journal-scroll'), scroll=list.scrollTop;
+  const template=document.createElement('template');
+  template.innerHTML=journalView(active());
+  const fresh=template.content;
+  current.querySelector('.journal-title p').textContent=fresh.querySelector('.journal-title p').textContent;
+  const entries=current.querySelector('.journal-entries');
+  const existing=new Map([...entries.querySelectorAll('[data-trade-id]')].map(row=>[row.dataset.tradeId,row]));
+  const ordered=[...fresh.querySelector('.journal-entries').children].map(node=>{
+    const row=existing.get(node.dataset.tradeId);
+    if (!row) return node;
+    row.querySelector('.trade-row-summary').innerHTML=node.querySelector('.trade-row-summary').innerHTML;
+    return row;
+  });
+  const keep=new Set(ordered);
+  [...entries.children].forEach(node=>{if(!keep.has(node)) node.remove();});
+  ordered.forEach((node,index)=>{if(entries.children[index]!==node) entries.insertBefore(node,entries.children[index]||null);});
   list.scrollTop=scroll;
-  if(focusTradeId) next.querySelector('[data-trade-id="'+CSS.escape(focusTradeId)+'"]')?.scrollIntoView({block:'nearest'});
+  if(focusTradeId) entries.querySelector('[data-trade-id="'+CSS.escape(focusTradeId)+'"]')?.scrollIntoView({block:'nearest'});
 }
 function bindAccountPicker() {
   document.querySelector('[data-account-select]')?.addEventListener('change', event => { clearTimeout(accountSuccessTimer); editingTradeId=null; state.accountId = event.target.value; state.historyMonth = null; state.accountsMode = 'history'; deleteConfirm = false; createdAccountNumber = null; accountDraft=null; if (state.view === 'daily') state.dailyAnchor = today(); save(); render(true); });
@@ -482,9 +410,10 @@ function refreshAccountPicker() {
   const header=document.querySelector('.app-header'); if(!header) return;
   const account=active(); header.innerHTML=account?accountPicker(account):''; bindAccountPicker();
 }
-function saveNewAccount(event) {
+async function saveNewAccount(event) {
   event.preventDefault();
   const form=event.currentTarget;
+  if (form.dataset.saving) return;
   try {
     const values=Object.fromEntries(new FormData(form));
     const initial=parseAmount(values.initial), cost=parseAmount(values.cost);
@@ -493,14 +422,16 @@ function saveNewAccount(event) {
     if(state.accounts.some(account=>account.number===number)) throw new Error('Ya existe una cuenta con ese número.');
     accountDraft={...values,initial:String(initial),cost:String(cost),number,firm,type};
     const account={id:crypto.randomUUID(),number,initial,currency:values.currency,cost,firm,type,created:values.created};
-    state.accounts.push(account); state.manual[account.id]={}; state.accountId=account.id;
-    createdAccountNumber=number; save(); refreshAccountPicker(); refreshAccounts();
+    form.dataset.saving='true';
+    state.accounts.push(account); state.accountId=account.id;
+    await save(true);
+    createdAccountNumber=number; refreshAccountPicker(); refreshAccounts();
     clearTimeout(accountSuccessTimer);
     accountSuccessTimer=setTimeout(()=>{
       createdAccountNumber=null; accountDraft=null; state.accountsMode='history'; save();
       if(state.view==='accounts') refreshAccounts(true);
     },2000);
-  } catch(error) { showNotice(error.message); }
+  } catch(error) { delete form.dataset.saving; showNotice(error.message); }
 }
 function startAccountFieldEdit(button) {
   const account=active();
@@ -513,26 +444,27 @@ function startAccountFieldEdit(button) {
   else if (field==='initial'||field==='cost') input.inputMode='decimal';
   input.value=String(account[field] ?? ''); button.replaceWith(input); input.focus(); if (input.select) input.select();
   let committed=false;
-  const commit=()=>{
+  const commit=async()=>{
     if (committed) return;
     try {
       let value=input.value.trim();
       if (field==='initial'||field==='cost') value=parseAmount(value);
       if (value===null||value===''||(field==='initial'&&value<=0)||(field==='cost'&&value<0)) throw new Error('Introduce un valor válido.');
       if (field==='number'&&state.accounts.some(item=>item.id!==account.id&&item.number===value)) throw new Error('Ya existe una cuenta con ese número.');
-      account[field]=typeof value==='string'?value.slice(0,60):value; committed=true; save(); refreshAccountPicker(); refreshAccounts();
+      account[field]=typeof value==='string'?value.slice(0,60):value; committed=true; await save(true); refreshAccountPicker(); refreshAccounts();
     } catch(error) { showNotice(error.message); input.focus(); }
   };
   input.addEventListener('change',commit); input.addEventListener('blur',commit); input.addEventListener('keydown',event=>{if(event.key==='Enter'){event.preventDefault();commit();}});
 }
-function deleteActiveAccount() {
+async function deleteActiveAccount() {
   const account=active(); if (!account) return;
   clearTimeout(accountSuccessTimer);
   state.accounts=state.accounts.filter(item=>item.id!==account.id);
-  delete state.manual[account.id]; state.trades=state.trades.filter(trade=>trade.accountId!==account.id);
+  if (state.manual) delete state.manual[account.id]; state.trades=state.trades.filter(trade=>trade.accountId!==account.id);
   state.accountId=state.accounts[0]?.id || null; state.historyMonth=null;
   state.accountsMode=state.accountId?'history':'create'; deleteConfirm=false; createdAccountNumber=null;
-  save(); render(true,false);
+  try { await save(true); render(true,false); }
+  catch(error) { render(false,false); showNotice(error.message); }
 }
 function loadMore(list, direction) {
   if (!list.isConnected || swipe) return;
@@ -566,7 +498,7 @@ function loadMore(list, direction) {
 }
 function bindDetailControls() {
   document.querySelector('[data-go-journal]')?.addEventListener('click', () => { state.view = 'journal'; state.journalScope = 'day'; save(); render(); });
-  document.querySelector('[data-open-history]')?.addEventListener('click', event => { state.view = 'accounts'; state.accountsMode='history'; state.historyMonth = event.currentTarget.dataset.openHistory; save(); render(); });
+  document.querySelector('[data-open-journal-month]')?.addEventListener('click', event => { state.month=event.currentTarget.dataset.openJournalMonth; state.view='journal'; state.journalScope='month'; editingTradeId=null; save(); render(); });
 }
 function refreshDetail(view) {
   const account = active();
@@ -732,28 +664,40 @@ function navigate(view) {
 }
 window.addEventListener('resize',()=>{gesture.active=false;clearSwipe();});
 
-function openTrade() {
-  const account = active(), openDefault=`${state.date}T09:00`, closeDefault=`${state.date}T10:00`;
-  dialog.innerHTML = '<form method="dialog" class="modal-card trade-form" id="trade-form"><div class="modal-head"><h2>NUEVA OPERACIÓN</h2><button type="button" data-close-dialog class="close-button" aria-label="Cerrar">×</button></div><p class="modal-date">Cuenta ' + esc(account.number) + ' · operación cerrada</p><div class="form-grid">'+
-    '<label class="wide">Apertura<input type="datetime-local" name="openedAt" value="'+openDefault+'" required></label><label class="wide">Cierre<input type="datetime-local" name="closedAt" value="'+closeDefault+'" required></label>'+
-    '<label>Símbolo<input name="symbol" required placeholder="XAUUSD"></label><label>Dirección<select name="direction" required><option>Compra</option><option>Venta</option></select></label>'+
-    '<label>Tamaño posición<input name="size" required inputmode="decimal"></label><label>Precio entrada<input name="entry" required inputmode="decimal"></label><label>Precio cierre<input name="closePrice" required inputmode="decimal"></label>'+
-    '<label>Stop loss<input name="sl" required inputmode="decimal"></label><label>Take profit<input name="tp" required inputmode="decimal"></label>'+
-    '<label>Beneficio bruto ('+symbol(account.currency)+')<input name="grossProfit" required inputmode="decimal"></label><label>Comisión ('+symbol(account.currency)+')<input name="commission" value="0" required inputmode="decimal"></label><label>Swap ('+symbol(account.currency)+')<input name="swap" value="0" required inputmode="decimal"></label>'+
-    '<label class="wide net-field">Beneficio neto ('+symbol(account.currency)+')<input name="netProfit" readonly value="--"></label><label class="wide">Nota<textarea name="note" rows="2"></textarea></label></div><button class="primary-button wide" value="save">Guardar operación</button></form>';
-  dialog.showModal(); dialog.querySelector('[data-close-dialog]').addEventListener('click', () => dialog.close()); const form = dialog.querySelector('form');
+async function openTrade() {
+  const account=active(), journal=document.querySelector('.journal-view');
+  if (!account || !journal) return;
+  const previous=journal.querySelector('[data-trade-edit-form], [data-new-trade-form]');
+  if (previous) await closeTradeEditor(previous.closest('.trade-row'),previous);
+  if (!journal.isConnected) return;
+  const trade={openedAt:state.date+'T09:00',closedAt:state.date+'T10:00',direction:'Compra',commission:0,swap:0};
+  const card=document.createElement('article');
+  card.className='trade-row expanded';
+  card.dataset.newTrade='';
+  card.innerHTML='<form class="trade-edit-form" id="trade-form" data-new-trade-form><div class="new-trade-heading"><h2>NUEVA OPERACIÓN</h2><button type="button" data-close-new-trade aria-label="Cerrar formulario">×</button></div>'+tradeFields(trade,account)+'<p data-trade-edit-notice role="status" hidden></p><button class="primary-button wide" value="save">Guardar operación</button></form>';
+  journal.querySelector('.journal-title').after(card);
+  const form=card.querySelector('form');
   bindTradeNet(form,account);
-  form.addEventListener('submit', event => {
-    if (event.submitter?.value !== 'save') return;
+  form.addEventListener('submit',async event=>{
     event.preventDefault();
+    if (form.dataset.saving) return;
     try {
-      const trade=tradeFromForm(form);
-      state.trades.push({id:crypto.randomUUID(),accountId:account.id,...trade});
-      state.date=trade.date; state.month=trade.date.slice(0,7); state.journalScope='day';
-      save(); dialog.close(); render();
-    } catch(error) { showNotice(error.message); }
+      const values=tradeFromForm(form);
+      form.dataset.saving='true';
+      const id=crypto.randomUUID();
+      state.trades.push({id,accountId:account.id,...values});
+      state.date=values.date; state.month=values.date.slice(0,7);
+      await save(true);
+      await closeTradeEditor(card,form);
+      if (journal.isConnected) refreshJournal(id);
+    } catch(error) {
+      delete form.dataset.saving;
+      const message=form.querySelector('[data-trade-edit-notice]');
+      message.textContent=error.message; message.hidden=false;
+    }
   });
+  await animateTradeEditor(card,form,true);
+  if (card.isConnected && !form.contains(document.activeElement)) card.scrollIntoView({block:'start'});
 }
 
-dialog.addEventListener('click', event => { if (event.target === dialog) dialog.close(); });
 render(true);

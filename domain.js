@@ -76,9 +76,14 @@ export function daySummary(account,book,date) {
     expected:average(prior.map(d=>d.profit)), expectedPercent:average(prior.map(d=>d.percentage).filter(n=>n!==null)),
     accumulated:(cents(end)-cents(account.initial))/100, accumulatedPercent:(end-account.initial)/account.initial*100};
 }
+const monthGroups = new WeakMap();
 export function monthSummary(account,book,month) {
-  const groups=new Map();
-  for (const day of book) { const key=day.date.slice(0,7); if (!groups.has(key)) groups.set(key,[]); groups.get(key).push(day); }
+  let groups=monthGroups.get(book);
+  if (!groups) {
+    groups=new Map();
+    for (const day of book) { const key=day.date.slice(0,7); if (!groups.has(key)) groups.set(key,[]); groups.get(key).push(day); }
+    monthGroups.set(book,groups);
+  }
   const previous=[...groups].filter(([key])=>key<month).map(([,days])=>{
     const profit=days.reduce((s,d)=>s+cents(d.profit),0)/100, start=days[0].start;
     return {profit,percentage:start>0?profit/start*100:null};
@@ -90,38 +95,38 @@ export function monthSummary(account,book,month) {
     accumulated:(cents(end)-cents(account.initial))/100,accumulatedPercent:(end-account.initial)/account.initial*100};
 }
 export function history(account,state) {
-  const records=[{id:`created-${account.id}`,type:'created',date:account.created,account}];
-  for (const day of ledger(account,state)) {
-    let balance=day.start;
-    for (const trade of day.trades) {
-      const profit=tradeNet(trade);
-      const start=balance;
-      balance=(cents(balance)+cents(profit))/100;
-      records.push({...trade,type:'trade',date:tradeDate(trade),profit,start,end:balance,percentage:start>0?profit/start*100:null});
-    }
-  }
-  return records.sort((a,b)=>a.date.localeCompare(b.date) || String(a.closedAt||'').localeCompare(String(b.closedAt||'')));
+  return [{id:`created-${account.id}`,type:'created',date:account.created,account}];
 }
 
-export function dailyBalanceSeries(account,state,range={}) {
+function reportPeriod(account,state,range) {
+  const all=closedTrades(account,state);
+  const openingBalance=(cents(account.initial)+all.filter(trade=>range.from && trade.date<range.from).reduce((sum,trade)=>sum+cents(trade.profit),0))/100;
+  const trades=all.filter(trade=>(!range.from || trade.date>=range.from) && (!range.to || trade.date<=range.to));
+  return {openingBalance,trades,series:dailySeries(trades,openingBalance)};
+}
+function dailySeries(trades,openingBalance) {
   const days=new Map();
-  for (const trade of closedTrades(account,state,range)) days.set(trade.date,(days.get(trade.date)||0)+cents(trade.profit));
-  let balance=cents(account.initial);
+  for (const trade of trades) days.set(trade.date,(days.get(trade.date)||0)+cents(trade.profit));
+  let balance=cents(openingBalance);
   return [...days].sort(([a],[b])=>a.localeCompare(b)).map(([date,profitCents])=>{
     balance+=profitCents;
     return {date,profit:profitCents/100,balance:balance/100};
   });
 }
+export function dailyBalanceSeries(account,state,range={}) {
+  return reportPeriod(account,state,range).series;
+}
 
-const curveFromDailySeries = (account,series) => {
+const curveFromDailySeries = (openingBalance,series) => {
   if (!series.length) return [];
   return [
-    {date:series[0].date,balance:account.initial},
+    {date:series[0].date,balance:openingBalance},
     ...series.map((day,index)=>({date:series[index+1]?.date??addDays(day.date,1),balance:day.balance})),
   ];
 };
 export function balanceCurveSeries(account,state,range={}) {
-  return curveFromDailySeries(account,dailyBalanceSeries(account,state,range));
+  const {openingBalance,series}=reportPeriod(account,state,range);
+  return curveFromDailySeries(openingBalance,series);
 }
 
 const sumMoney = values => values.reduce((total,value)=>total+cents(value),0)/100;
@@ -143,15 +148,14 @@ function streakStats(trades,positive) {
 }
 
 export function reportStats(account,state,range={}) {
-  const trades=closedTrades(account,state,range);
-  const series=dailyBalanceSeries(account,state,range);
+  const {trades,series,openingBalance}=reportPeriod(account,state,range);
   const netProfit=sumMoney(trades.map(trade=>trade.profit));
   const positiveNet=trades.filter(trade=>trade.profit>0).map(trade=>trade.profit);
   const negativeNet=trades.filter(trade=>trade.profit<0).map(trade=>trade.profit);
   const gross=trades.map(trade=>Number.isFinite(trade.grossProfit)?trade.grossProfit:trade.profit);
   const commissions=trades.map(trade=>Number.isFinite(trade.commission)?trade.commission:0);
   const swaps=trades.map(trade=>Number.isFinite(trade.swap)?trade.swap:0);
-  let peak=account.initial, maxDrawdown={amount:0,percent:0};
+  let peak=openingBalance, maxDrawdown={amount:0,percent:0};
   for (const day of series) {
     if (day.balance>peak) peak=day.balance;
     const amount=(cents(peak)-cents(day.balance))/100;
@@ -162,9 +166,10 @@ export function reportStats(account,state,range={}) {
   const positiveDays=series.filter(day=>day.profit>0), negativeDays=series.filter(day=>day.profit<0);
   const byProfit=[...series].sort((a,b)=>a.profit-b.profit);
   return {
-    balance:(cents(account.initial)+cents(netProfit))/100,
+    openingBalance,
+    balance:(cents(openingBalance)+cents(netProfit))/100,
     netProfit,
-    returnPercent:account.initial?netProfit/account.initial*100:null,
+    returnPercent:openingBalance?netProfit/openingBalance*100:null,
     totalTrades:trades.length,
     grossProfit:sumMoney(gross.filter(value=>value>0)),
     grossLoss:sumMoney(gross.filter(value=>value<0)),
@@ -187,6 +192,6 @@ export function reportStats(account,state,range={}) {
       worst:byProfit.length?{date:byProfit[0].date,profit:byProfit[0].profit}:null,
     },
     series,
-    curve:curveFromDailySeries(account,series),
+    curve:curveFromDailySeries(openingBalance,series),
   };
 }

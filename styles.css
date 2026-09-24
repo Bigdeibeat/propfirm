@@ -179,7 +179,16 @@ button {
 
 .phone {
   width: min(100vw, calc(100vh * var(--phone-ratio)));
+  width: min(100vw, calc(100dvh * var(--phone-ratio)));
   height: 100vh;
+  height: var(--app-height, 100dvh);
+  top: var(--viewport-top, 0px);
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
+  display: flex;
+  flex-direction: column;
   margin: 0 auto;
   background: #000;
   position: relative;
@@ -188,8 +197,9 @@ button {
 }
 
 .app-header {
-  height: 14.3cqw;
-  padding: 5.4cqw 5.5cqw 0;
+  flex: none;
+  height: calc(14.3cqw + var(--safe-top));
+  padding: calc(5.4cqw + var(--safe-top)) max(5.5cqw, var(--safe-right)) 0 max(5.5cqw, var(--safe-left));
   background: #000
 }
 
@@ -242,7 +252,8 @@ button {
 }
 
 .screen {
-  height: calc(100vh - 14.3cqw - 8.3cqw);
+  flex: 1;
+  min-height: 0;
   position: relative;
   overflow: hidden;
   padding: 3.7cqw 0 0;
@@ -259,7 +270,7 @@ button {
   height: 100%;
   position: relative;
   min-width: 0;
-  padding: 0 5.5cqw
+  padding: 0 max(5.5cqw, var(--safe-right)) 0 max(5.5cqw, var(--safe-left))
 }
 
 .screen-page>.empty-account {
@@ -308,7 +319,7 @@ button {
 
 .scroll-region {
   position: absolute;
-  inset: 0 0 calc(59.7cqw + 3.7cqw) 0;
+  inset: 0 0 calc(min(59.7cqw, 65%) + 3.7cqw) 0;
   overflow-y: auto;
   overscroll-behavior: contain;
   padding: 0 0 1.3cqw;
@@ -376,7 +387,7 @@ button {
   left: 0;
   right: 0;
   bottom: 0;
-  height: 59.7cqw;
+  height: min(59.7cqw, 65%);
   border: 1px solid #191919;
   border-radius: .75cqw;
   background: #262626;
@@ -439,39 +450,15 @@ button {
   font-weight: 400
 }
 
-.inline-value small {
-  display: block;
-  color: #aaa;
-  font-size: 9px;
-  text-align: right
-}
-
-.inline-editor {
-  width: 26cqw;
-  border: 0;
-  border-bottom: 2px solid var(--green);
-  outline: 0;
-  background: #111;
-  color: #fff;
-  text-align: right;
-  font-size: 3cqw;
-  padding: .4cqw
-}
-
-.detail-note {
-  color: #ffca51;
-  font-size: 12px;
-  margin: 12px 0 0
-}
-
 .bottom-nav {
-  position: absolute;
+  position: relative;
+  flex: none;
   left: 0;
   right: 0;
   bottom: 0;
-  height: 8.3cqw;
+  height: calc(8.3cqw + var(--safe-bottom));
   background: #000;
-  padding: 1.7cqw 3cqw;
+  padding: 1.7cqw max(3cqw, var(--safe-right)) calc(1.7cqw + var(--safe-bottom)) max(3cqw, var(--safe-left));
   display: grid;
   grid-template-columns: repeat(5, 1fr);
   z-index: 5
@@ -568,7 +555,7 @@ button {
 .account-field {
   min-height: 5.8cqw;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(22cqw, 45%);
+  grid-template-columns: minmax(0, 1fr) minmax(22cqw, 60%);
   align-items: center;
   gap: 2cqw
 }
@@ -655,7 +642,7 @@ button {
 .delete-account-button {
   width: 100%;
   margin: 0 0 3.7cqw;
-  border: 2px solid #666;
+  border: none;
   background: var(--red);
   color: #fff
 }
@@ -838,6 +825,39 @@ button {
   padding: 3cqw
 }
 
+.new-trade-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 3cqw
+}
+
+.new-trade-heading h2 {
+  margin: 0;
+  font-size: 3.5cqw
+}
+
+.new-trade-heading button {
+  border: 0;
+  background: none;
+  font-size: 6cqw;
+  line-height: 1
+}
+
+.phone[data-keyboard="true"] {
+  --safe-bottom: 0px
+}
+
+@media (pointer: coarse) {
+  .phone {
+    width: min(100vw, 600px)
+  }
+
+  .phone :is(input, textarea, select) {
+    font-size: max(16px, 3cqw)
+  }
+}
+
 .trade-edit-form .form-grid {
   grid-template-columns: 1fr 1fr;
   gap: 2.2cqw
@@ -919,32 +939,6 @@ button {
 }
 
 .account-history-card.created-event strong {
-  font-weight: 800
-}
-
-.history-performance {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 1.4cqw;
-  min-width: 0;
-  white-space: nowrap;
-  text-align: right
-}
-
-.history-performance span {
-  min-width: 0
-}
-
-.history-performance small {
-  font-size: inherit
-}
-
-.history-performance i {
-  font-style: normal
-}
-
-.history-performance strong {
   font-weight: 800
 }
 
@@ -1169,72 +1163,9 @@ button {
   line-height: 1.2
 }
 
-#dialog {
-  padding: 0;
-  border: 0;
-  background: transparent;
-  color: #fff;
-  max-width: calc(100vw - 28px);
-  max-height: calc(100dvh - 28px)
-}
-
-#dialog::backdrop {
-  background: rgba(0, 0, 0, .8)
-}
-
-.modal-card {
-  width: min(450px, calc(100vw - 28px));
-  max-height: calc(100dvh - 28px);
-  overflow: auto;
-  margin: 0;
-  border: 1px solid #444;
-  border-radius: 12px;
-  background: #242424;
-  color: #fff;
-  padding: 22px
-}
-
-.modal-card .primary-button {
-  font-size: 14px;
-  padding: 12px 16px;
-  border-radius: 6px;
-  margin-top: 14px
-}
-
-[data-form-notice] {
-  color: #ffca51;
-  font-size: 13px;
-  line-height: 1.4;
-  margin: 12px 0 0
-}
-
 .journal-day {
   font-size: 3cqw;
   margin: 16px 0 8px
-}
-
-.modal-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 16px
-}
-
-.modal-head h2 {
-  margin: 0;
-  font-size: 18px
-}
-
-.close-button {
-  border: 0;
-  background: none;
-  font-size: 28px;
-  line-height: 1
-}
-
-.modal-date {
-  color: #aaa;
-  font-size: 13px
 }
 
 .form-grid {
@@ -1284,7 +1215,9 @@ button {
   border-radius: 6px;
   padding: 11px 15px;
   font-size: 13px;
-  white-space: nowrap
+  width: max-content;
+  max-width: min(92vw, 480px);
+  white-space: normal
 }
 
 @media(max-width:600px) {
@@ -1299,5 +1232,13 @@ button {
   .form-grid .wide,
   .primary-button.wide {
     grid-column: 1
+  }
+}
+
+@media (pointer: coarse) {
+
+  .phone .trade-edit-form .form-grid :is(input, select, textarea),
+  .phone .account-field :is(input, select) {
+    font-size: max(16px, 3cqw)
   }
 }
