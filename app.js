@@ -156,17 +156,30 @@ function monthlyDetail(account) {
     metric('PORCENTAJE ACUMULADO', percent(item.accumulatedPercent), toneFor(item.accumulatedPercent)) + '</div></section>';
 }
 
+const monthRange = month => ({from:`${month}-01`,to:addDays(`${addMonths(month,1)}-01`,-1)});
+const journalRange = (context=state) => context.journalFrom && context.journalTo
+  ? {from:context.journalFrom,to:context.journalTo}
+  : context.journalScope==='day'
+    ? {from:context.date,to:context.date}
+    : monthRange(context.month);
+
 function journalView(account) {
-  const monthly = state.journalScope === 'month';
-  const trades = state.trades.filter(trade => trade.accountId === account.id && (monthly ? trade.date.slice(0,7) === state.month : trade.date === state.date)).sort((a,b)=>(a.closedAt||a.date).localeCompare(b.closedAt||b.date));
+  const {from,to}=journalRange();
+  const trades = state.trades.filter(trade => {
+    const closed=(trade.closedAt||trade.date||'').slice(0,10);
+    return trade.accountId===account.id && closed>=from && closed<=to;
+  }).sort((a,b)=>(a.closedAt||a.date).localeCompare(b.closedAt||b.date));
   let lastDate = null;
   const rows = trades.map(trade => {
-    const heading = monthly && trade.date !== lastDate ? '<h2 class="journal-day">' + esc(labelDate(trade.date)) + '</h2>' : '';
-    lastDate = trade.date;
+    const closed=(trade.closedAt||trade.date).slice(0,10);
+    const heading = closed !== lastDate ? '<h2 class="journal-day">' + esc(labelDate(closed)) + '</h2>' : '';
+    lastDate = closed;
     return heading + tradeRow(trade);
   }).join('');
-  return '<div class="view journal-view"><div class="journal-scroll"><div class="journal-title"><div><h1>BITÁCORA</h1><p>' + esc(monthly ? monthLabel(state.month) : labelDate(state.date)) + '</p></div><button class="primary-button" data-add-trade>+ Operación</button></div>' +
-    '<div class="journal-entries">' + (trades.length ? rows : '<div class="empty-card"><strong>No hay operaciones para este ' + (monthly ? 'mes' : 'día') + '</strong><span>Añade una operación y Diario usará su resultado automáticamente.</span><button class="primary-button" data-add-trade>Añadir operación</button></div>') + '</div></div></div>';
+  const filter=(name,value,label)=>'<label class="journal-date-filter"><span>'+label+'</span><input type="date" data-journal-'+name+' aria-label="'+label+'" value="'+esc(value)+'"><span class="triangle" aria-hidden="true"></span></label>';
+  return '<div class="view journal-view"><div class="journal-scroll"><div class="journal-filters">'+filter('from',from,'DESDE:')+filter('to',to,'HASTA:')+'</div>'+
+    '<article class="journal-new-card" data-new-trade><button type="button" class="journal-add-button" data-add-trade aria-expanded="false">+ AÑADIR OPERACIÓN</button></article>'+
+    '<div class="journal-entries">' + (trades.length ? rows : '<div class="empty-card"><strong>No hay operaciones en este intervalo</strong><span>Puedes añadir una operación de cualquier fecha o cambiar el filtro.</span></div>') + '</div></div></div>';
 }
 
 function tradeRow(trade) {
@@ -264,7 +277,31 @@ function bindJournalControls(root) {
   const journal=root.matches?.('.journal-view')?root:root.querySelector('.journal-view');
   if (!journal || journal.dataset.bound) return;
   journal.dataset.bound='true';
+  journal.querySelectorAll('[data-journal-from], [data-journal-to]').forEach(input=>input.addEventListener('change',()=>{
+    const previous=journalRange();
+    const form=journal.querySelector('[data-trade-edit-form]');
+    if (form) {
+      input.value=input.hasAttribute('data-journal-from')?previous.from:previous.to;
+      showNotice('Guarda o cierra la edición antes de cambiar las fechas.');
+      return;
+    }
+    const next={...previous,[input.hasAttribute('data-journal-from')?'from':'to']:input.value};
+    if (!input.value || next.from>next.to) {
+      input.value=input.hasAttribute('data-journal-from')?previous.from:previous.to;
+      showNotice('Selecciona un intervalo de fechas válido.');
+      return;
+    }
+    if (input.hasAttribute('data-journal-from')) state.journalFrom=input.value;
+    else state.journalTo=input.value;
+    save();
+    refreshJournal();
+  }));
   journal.addEventListener('click',event=>{
+    const dateArrow=event.target.closest('.journal-date-filter .triangle');
+    if (dateArrow) {
+      dateArrow.closest('label').querySelector('input').showPicker?.();
+      return;
+    }
     const add=event.target.closest('[data-add-trade]');
     const edit=event.target.closest('[data-edit-trade]');
     const close=event.target.closest('[data-close-new-trade]');
@@ -285,8 +322,6 @@ function bindTradeEditForm(form) {
       const changes=tradeFromForm(form,trade);
       form.dataset.saving='true';
       Object.assign(trade,changes);
-      state.date=changes.date;
-      state.month=changes.date.slice(0,7);
       editingTradeId=null;
       await save(true);
       const journal=form.closest('.journal-view');
@@ -335,10 +370,10 @@ async function closeTradeEditor(card,form) {
     return;
   }
   card.querySelector('[data-edit-trade]')?.setAttribute('aria-expanded','false');
+  card.querySelector('[data-add-trade]')?.setAttribute('aria-expanded','false');
   await animateTradeEditor(card,form,false);
   form.remove();
   card.classList.remove('expanded');
-  if (card.hasAttribute('data-new-trade')) card.remove();
   if(editingTradeId===card.dataset.tradeId) editingTradeId=null;
 }
 async function animateTradeEditor(card,form,opening) {
@@ -369,7 +404,6 @@ function refreshJournal(focusTradeId=null) {
   const template=document.createElement('template');
   template.innerHTML=journalView(active());
   const fresh=template.content;
-  current.querySelector('.journal-title p').textContent=fresh.querySelector('.journal-title p').textContent;
   const entries=current.querySelector('.journal-entries');
   const existing=new Map([...entries.querySelectorAll('[data-trade-id]')].map(row=>[row.dataset.tradeId,row]));
   const ordered=[...fresh.querySelector('.journal-entries').children].map(node=>{
@@ -497,8 +531,8 @@ function loadMore(list, direction) {
   if (gesture.scrollElement === list) gesture.scrollElement = next;
 }
 function bindDetailControls() {
-  document.querySelector('[data-go-journal]')?.addEventListener('click', () => { state.view = 'journal'; state.journalScope = 'day'; save(); render(); });
-  document.querySelector('[data-open-journal-month]')?.addEventListener('click', event => { state.month=event.currentTarget.dataset.openJournalMonth; state.view='journal'; state.journalScope='month'; editingTradeId=null; save(); render(); });
+  document.querySelector('[data-go-journal]')?.addEventListener('click', () => { state.view = 'journal'; state.journalScope = 'day'; state.journalFrom=state.date; state.journalTo=state.date; save(); render(); });
+  document.querySelector('[data-open-journal-month]')?.addEventListener('click', event => { state.month=event.currentTarget.dataset.openJournalMonth; state.view='journal'; state.journalScope='month'; ({from:state.journalFrom,to:state.journalTo}=monthRange(state.month)); editingTradeId=null; save(); render(); });
 }
 function refreshDetail(view) {
   const account = active();
@@ -653,7 +687,16 @@ function navigationState(view) {
   }
   if (view === 'journal' || view === 'accounts') next.historyMonth = next.month;
   if (view === 'accounts') next.accountsMode = 'history';
-  if (view === 'journal') next.journalScope = 'month';
+  if (view === 'journal') {
+    if (state.view === 'daily') {
+      next.journalScope = 'day';
+      next.journalFrom = next.date;
+      next.journalTo = next.date;
+    } else {
+      next.journalScope = 'month';
+      ({from:next.journalFrom,to:next.journalTo}=monthRange(next.month));
+    }
+  }
   next.view=view;
   return next;
 }
@@ -667,15 +710,16 @@ window.addEventListener('resize',()=>{gesture.active=false;clearSwipe();});
 async function openTrade() {
   const account=active(), journal=document.querySelector('.journal-view');
   if (!account || !journal) return;
-  const previous=journal.querySelector('[data-trade-edit-form], [data-new-trade-form]');
+  const card=journal.querySelector('[data-new-trade]');
+  const newForm=card.querySelector('[data-new-trade-form]');
+  if (newForm) {await closeTradeEditor(card,newForm);return;}
+  const previous=journal.querySelector('[data-trade-edit-form]');
   if (previous) await closeTradeEditor(previous.closest('.trade-row'),previous);
   if (!journal.isConnected) return;
   const trade={openedAt:state.date+'T09:00',closedAt:state.date+'T10:00',direction:'Compra',commission:0,swap:0};
-  const card=document.createElement('article');
-  card.className='trade-row expanded';
-  card.dataset.newTrade='';
-  card.innerHTML='<form class="trade-edit-form" id="trade-form" data-new-trade-form><div class="new-trade-heading"><h2>NUEVA OPERACIÓN</h2><button type="button" data-close-new-trade aria-label="Cerrar formulario">×</button></div>'+tradeFields(trade,account)+'<p data-trade-edit-notice role="status" hidden></p><button class="primary-button wide" value="save">Guardar operación</button></form>';
-  journal.querySelector('.journal-title').after(card);
+  card.classList.add('expanded');
+  card.querySelector('[data-add-trade]').setAttribute('aria-expanded','true');
+  card.insertAdjacentHTML('beforeend','<form class="trade-edit-form" id="trade-form" data-new-trade-form>'+tradeFields(trade,account)+'<p data-trade-edit-notice role="status" hidden></p><button class="primary-button wide" value="save">Guardar operación</button></form>');
   const form=card.querySelector('form');
   bindTradeNet(form,account);
   form.addEventListener('submit',async event=>{
@@ -686,7 +730,6 @@ async function openTrade() {
       form.dataset.saving='true';
       const id=crypto.randomUUID();
       state.trades.push({id,accountId:account.id,...values});
-      state.date=values.date; state.month=values.date.slice(0,7);
       await save(true);
       await closeTradeEditor(card,form);
       if (journal.isConnected) refreshJournal(id);
@@ -697,7 +740,6 @@ async function openTrade() {
     }
   });
   await animateTradeEditor(card,form,true);
-  if (card.isConnected && !form.contains(document.activeElement)) card.scrollIntoView({block:'start'});
 }
 
 render(true);

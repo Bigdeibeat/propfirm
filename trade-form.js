@@ -7,12 +7,13 @@ export function tradeFields(trade,account) {
   const option=direction=>'<option' + (trade.direction===direction?' selected':'') + '>' + direction + '</option>';
   const value=name=>esc(trade[name] ?? '');
   return '<div class="form-grid">'+
-    '<label class="wide">Apertura<input type="datetime-local" name="openedAt" value="'+value('openedAt')+'" required></label><label class="wide">Cierre<input type="datetime-local" name="closedAt" value="'+value('closedAt')+'" required></label>'+
+    '<label>Apertura<input type="datetime-local" name="openedAt" value="'+value('openedAt')+'" required></label><label>Cierre<input type="datetime-local" name="closedAt" value="'+value('closedAt')+'" required></label>'+
     '<label>Símbolo<input name="symbol" value="'+value('symbol')+'" required placeholder="XAUUSD"></label><label>Dirección<select name="direction" required>'+option('Compra')+option('Venta')+'</select></label>'+
-    '<label>Tamaño posición<input name="size" value="'+value('size')+'" required inputmode="decimal"></label><label>Precio entrada<input name="entry" value="'+value('entry')+'" required inputmode="decimal"></label><label>Precio cierre<input name="closePrice" value="'+value('closePrice')+'" required inputmode="decimal"></label>'+
-    '<label>Stop loss<input name="sl" value="'+value('sl')+'"'+required('sl')+' inputmode="decimal"></label><label>Take profit<input name="tp" value="'+value('tp')+'"'+required('tp')+' inputmode="decimal"></label>'+
-    '<label>Beneficio bruto ('+symbol(account.currency)+')<input name="grossProfit" value="'+value('grossProfit')+'" required inputmode="decimal"></label><label>Comisión ('+symbol(account.currency)+')<input name="commission" value="'+value('commission')+'" required inputmode="decimal"></label><label>Swap ('+symbol(account.currency)+')<input name="swap" value="'+value('swap')+'" required inputmode="decimal"></label>'+
-    '<label class="wide net-field">Beneficio neto ('+symbol(account.currency)+')<input name="netProfit" readonly value="'+money(tradeNet(trade),account.currency,false)+'"></label><label class="wide">Nota<textarea name="note" rows="2">'+esc(trade.note||'')+'</textarea></label></div>';
+    '<label>Take profit<input name="tp" value="'+value('tp')+'"'+required('tp')+' inputmode="decimal"></label><label>Stop loss<input name="sl" value="'+value('sl')+'"'+required('sl')+' inputmode="decimal"></label>'+
+    '<label>Tamaño de la posición<input name="size" value="'+value('size')+'" required inputmode="decimal"></label><label>Beneficio bruto ('+symbol(account.currency)+')<input name="grossProfit" value="'+value('grossProfit')+'" required inputmode="decimal"></label>'+
+    '<label>Precio de entrada<input name="entry" value="'+value('entry')+'" required inputmode="decimal"></label><label>Precio de salida<input name="closePrice" value="'+value('closePrice')+'" required inputmode="decimal"></label>'+
+    '<label>Comisión ('+symbol(account.currency)+')<input name="commission" value="'+value('commission')+'" required inputmode="decimal"></label><label>Swap ('+symbol(account.currency)+')<input name="swap" value="'+value('swap')+'" required inputmode="decimal"></label>'+
+    '<label class="wide">Nota<textarea name="note" rows="2">'+esc(trade.note||'')+'</textarea></label><input type="hidden" name="netProfit" value="'+money(tradeNet(trade),account.currency,false)+'"></div>';
 }
 
 export function bindTradeNet(form,account) {

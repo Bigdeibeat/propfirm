@@ -2,7 +2,7 @@ import { today } from './domain.js';
 
 export const STORAGE_KEY = 'fondeo.app.v2';
 const VIEW_KEY = STORAGE_KEY + '.view';
-const viewKeys = ['accountId','view','date','month','dailyAnchor','monthAnchor','loadedDays','loadedMonths','historyMonth','accountsMode','journalScope'];
+const viewKeys = ['accountId','view','date','month','dailyAnchor','monthAnchor','loadedDays','loadedMonths','historyMonth','accountsMode','journalScope','journalFrom','journalTo'];
 const dataKeys = ['accounts','trades','imports','manual'];
 const pick = (state, keys) => Object.fromEntries(keys.filter(key=>state && key in state).map(key=>[key,state[key]]));
 const dataSignature = state => JSON.stringify(pick(state,dataKeys));

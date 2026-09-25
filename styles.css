@@ -727,6 +727,89 @@ button {
   line-height: 1.4
 }
 
+.journal-filters {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 2.2cqw;
+  margin: 0 0 3.7cqw;
+}
+
+.journal-date-filter {
+  min-width: 0;
+  min-height: 9.5cqw;
+  border: 1px solid #666;
+  border-radius: .85cqw;
+  display: flex;
+  align-items: center;
+  gap: .7cqw;
+  padding: 0 2.3cqw;
+  position: relative;
+  color: #fff;
+  font-size: 2.7cqw;
+  white-space: nowrap;
+}
+
+.journal-date-filter:focus-within { border-color: #fff; }
+
+.journal-date-filter input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: #fff;
+  color-scheme: dark;
+  font-size: inherit;
+  padding: 0;
+  cursor: pointer;
+}
+
+.journal-date-filter input::-webkit-calendar-picker-indicator { opacity: 0; width: 0; }
+
+.journal-date-filter .triangle {
+  position: static;
+  transform: none;
+  pointer-events: auto;
+  cursor: pointer;
+  flex: none;
+  border-left-width: 1cqw;
+  border-right-width: 1cqw;
+  border-top-width: 1.6cqw;
+}
+
+.journal-new-card {
+  margin: 0 0 3.7cqw;
+  border: 1px solid transparent;
+  border-radius: .85cqw;
+  overflow: hidden;
+  background: #fff;
+}
+
+.journal-new-card.expanded {
+  border-color: #666;
+  background: #262626;
+}
+
+.journal-add-button {
+  display: block;
+  width: 100%;
+  min-height: 9.5cqw;
+  border: 0;
+  background: transparent;
+  color: #191919;
+  font-size: 3.5cqw;
+  font-weight: 800;
+  text-align: center;
+}
+
+.journal-new-card.expanded .journal-add-button { color: #fff; }
+.journal-new-card .trade-edit-form { border-top: 0; padding-top: 1cqw; }
+
+.journal-day {
+  font-size: 3.7cqw;
+  margin: 3.7cqw 0 2.2cqw;
+}
+
 .primary-button {
   background: #fff;
   color: #000;
@@ -1161,11 +1244,6 @@ button {
   color: #aaa;
   font-size: 2.6cqw;
   line-height: 1.2
-}
-
-.journal-day {
-  font-size: 3cqw;
-  margin: 16px 0 8px
 }
 
 .form-grid {
