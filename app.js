@@ -189,8 +189,9 @@ function tradeRow(trade) {
 }
 
 function tradeEditForm(trade) {
-  return '<form class="trade-edit-form" data-trade-edit-form="'+esc(trade.id)+'">'+tradeFields(trade,active())+'<p data-trade-edit-notice role="status" hidden></p><button class="primary-button wide" data-save-trade>Guardar cambios</button></form>';
+  return '<form class="trade-edit-form" data-trade-edit-form="'+esc(trade.id)+'">'+tradeFields(trade,active())+'<p data-trade-edit-notice role="status" hidden></p><button class="primary-button wide" data-save-trade>GUARDAR CAMBIOS</button>'+tradeDeleteButton()+'</form>';
 }
+const tradeDeleteButton = () => '<button type="button" class="delete-account-button" data-delete-trade>ELIMINAR OPERACIÓN</button>';
 
 function accountsView(account) {
   const mode=state.accountsMode || 'history';
@@ -313,6 +314,16 @@ function bindJournalControls(root) {
 }
 function bindTradeEditForm(form) {
   bindTradeNet(form,active());
+  form.addEventListener('click',event=>{
+    if (form.dataset.saving) return;
+    if (event.target.closest('[data-delete-trade]')) {
+      form.querySelector('[data-delete-trade]').outerHTML='<div class="delete-confirm" data-confirm-delete-trade><div>¿ESTÁS SEGURO?</div><button type="button" data-delete-trade-now>SÍ, ELIMINAR</button><button type="button" class="cancel" data-cancel-delete-trade>NO, RETROCEDER</button></div>';
+    } else if (event.target.closest('[data-cancel-delete-trade]')) {
+      form.querySelector('[data-confirm-delete-trade]').outerHTML=tradeDeleteButton();
+    } else if (event.target.closest('[data-delete-trade-now]')) {
+      deleteEditedTrade(form);
+    }
+  });
   form.addEventListener('submit',async event=>{
     event.preventDefault();
     if (form.dataset.saving) return;
@@ -334,6 +345,23 @@ function bindTradeEditForm(form) {
       message.hidden=false;
     }
   });
+}
+async function deleteEditedTrade(form) {
+  const tradeId=form.dataset.tradeEditForm, account=active();
+  if (form.dataset.saving || !state.trades.some(trade=>trade.id===tradeId&&trade.accountId===account?.id)) return;
+  const card=form.closest('.trade-row'), journal=form.closest('.journal-view');
+  form.dataset.saving='true';
+  state.trades=state.trades.filter(trade=>trade.id!==tradeId);
+  try {
+    await save(true);
+    await closeTradeEditor(card,form);
+    if (journal?.isConnected) refreshJournal();
+  } catch(error) {
+    delete form.dataset.saving;
+    const message=form.querySelector('[data-trade-edit-notice]');
+    message.textContent=error.message;
+    message.hidden=false;
+  }
 }
 async function toggleTradeEditor(button) {
   const card=button.closest('.trade-row');

@@ -220,9 +220,8 @@ button {
   appearance: none;
   -webkit-appearance: none;
   display: block;
-  font-size: 3.4cqw;
+  font-size: 3.5cqw;
   font-weight: 800;
-  letter-spacing: -.07cqw;
   cursor: pointer;
   outline: none;
   text-align: center;
@@ -256,7 +255,7 @@ button {
   min-height: 0;
   position: relative;
   overflow: hidden;
-  padding: 3.7cqw 0 0;
+  padding: 3cqw 0 0;
   touch-action: pan-y
 }
 
@@ -284,7 +283,7 @@ button {
 
 .screen-page.swipe-preview {
   position: absolute;
-  top: 3.7cqw;
+  top: 3cqw;
   bottom: 0;
   left: 0;
   width: 100%;
@@ -387,11 +386,10 @@ button {
   left: 0;
   right: 0;
   bottom: 0;
-  height: min(59.7cqw, 65%);
   border: 1px solid #191919;
   border-radius: .75cqw;
   background: #262626;
-  padding: 3.7cqw 3.9cqw;
+  padding: 3.5cqw 3.5cqw;
   overflow: auto
 }
 
@@ -399,14 +397,13 @@ button {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 2.2cqw
+  margin-bottom: 3cqw
 }
 
 .detail-heading h2 {
   font-size: 3.5cqw;
   margin: 0;
   font-weight: 800;
-  letter-spacing: -.07cqw
 }
 
 .icon-button {
@@ -468,7 +465,6 @@ button {
   border: 0;
   background: none;
   font-size: 2.7cqw;
-  line-height: 1;
   white-space: nowrap
 }
 
@@ -509,7 +505,7 @@ button {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 2.2cqw;
-  margin: 0 0 3.7cqw
+  margin: 0 0 3cqw
 }
 
 .account-mode-button {
@@ -549,7 +545,6 @@ button {
   font-size: 3.7cqw;
   font-weight: 800;
   line-height: 1.2;
-  letter-spacing: -.07cqw
 }
 
 .account-field {
@@ -716,7 +711,6 @@ button {
   margin: 0;
   font-size: 3.5cqw;
   font-weight: 800;
-  letter-spacing: -.07cqw
 }
 
 .journal-title p,
@@ -731,7 +725,7 @@ button {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: 2.2cqw;
-  margin: 0 0 3.7cqw;
+  margin: 0 0 3cqw;
 }
 
 .journal-date-filter {
@@ -749,7 +743,9 @@ button {
   white-space: nowrap;
 }
 
-.journal-date-filter:focus-within { border-color: #fff; }
+.journal-date-filter:focus-within {
+  border-color: #fff;
+}
 
 .journal-date-filter input {
   flex: 1;
@@ -764,7 +760,10 @@ button {
   cursor: pointer;
 }
 
-.journal-date-filter input::-webkit-calendar-picker-indicator { opacity: 0; width: 0; }
+.journal-date-filter input::-webkit-calendar-picker-indicator {
+  opacity: 0;
+  width: 0;
+}
 
 .journal-date-filter .triangle {
   position: static;
@@ -802,12 +801,18 @@ button {
   text-align: center;
 }
 
-.journal-new-card.expanded .journal-add-button { color: #fff; }
-.journal-new-card .trade-edit-form { border-top: 0; padding-top: 1cqw; }
+.journal-new-card.expanded .journal-add-button {
+  color: #fff;
+}
+
+.journal-new-card .trade-edit-form {
+  border-top: 0;
+  padding-top: 1cqw;
+}
 
 .journal-day {
   font-size: 3.7cqw;
-  margin: 3.7cqw 0 2.2cqw;
+  margin: 3cqw 0 3cqw;
 }
 
 .primary-button {
@@ -851,7 +856,7 @@ button {
 .trade-row {
   background: #262626;
   border-radius: .85cqw;
-  margin: 0 0 2cqw;
+  margin: 0 0 3cqw;
   overflow: hidden;
   font-size: 3cqw;
   line-height: 1.4;
@@ -965,10 +970,24 @@ button {
   grid-column: 1/-1
 }
 
-.trade-edit-form>.primary-button {
+.trade-edit-form>.primary-button,
+.trade-edit-form>.delete-account-button {
   width: 100%;
-  margin-top: 2.5cqw
+  min-height: 9.5cqw;
+  margin-top: 2.2cqw;
+  border-radius: .85cqw;
+  padding: 0 2.4cqw;
+  font-size: 3.5cqw;
+  font-weight: 800;
+  line-height: 1.1
 }
+
+.trade-edit-form>.delete-account-button,
+.trade-edit-form>.delete-confirm {
+  margin-bottom: 0
+}
+
+.trade-edit-form>.delete-confirm { margin-top: 2.2cqw }
 
 .trade-edit-form [data-trade-edit-notice] {
   margin: 2cqw 0 0;
@@ -994,7 +1013,6 @@ button {
   font-size: 3.5cqw;
   font-weight: 800;
   text-transform: uppercase;
-  letter-spacing: -.07cqw
 }
 
 .account-history-card {
@@ -1014,7 +1032,7 @@ button {
   font-size: 3.5cqw;
   font-weight: 800;
   white-space: nowrap;
-  letter-spacing: -.08cqw
+
 }
 
 .account-history-card.created-event>span {
@@ -1074,23 +1092,21 @@ button {
 }
 
 .report-heading {
-  margin: 0 0 3.7cqw
+  margin: 0 0 3cqw
 }
 
 .report-heading h1 {
   margin: 0;
-  font-size: 3.8cqw;
+  font-size: 3cqw;
   font-weight: 800;
   line-height: 1.15;
-  letter-spacing: -.08cqw
 }
 
 .report-summary {
-  min-height: 28cqw;
-  margin: 0 0 3.3cqw;
+  margin: 0 0 3cqw;
   border-radius: .85cqw;
   background: #242424;
-  padding: 3.5cqw 4cqw;
+  padding: 3.5cqw 3.5cqw;
   display: flex;
   flex-direction: column;
   justify-content: center
@@ -1099,7 +1115,7 @@ button {
 .report-summary>span {
   color: #fff;
   font-size: 3cqw;
-  font-weight: 800;
+  font-weight: 600;
 }
 
 .report-summary>strong {
@@ -1122,10 +1138,10 @@ button {
 }
 
 .report-chart-card {
-  margin: 0 0 4.8cqw;
+  margin: 0 0 3cqw;
   border-radius: .85cqw;
   background: #242424;
-  padding: 3.4cqw 3.8cqw 2cqw;
+  padding: 3.5cqw 3.5cqw;
   overflow: hidden
 }
 
@@ -1138,9 +1154,8 @@ button {
 
 .report-chart-card h2 {
   margin: 0;
-  font-size: 3.2cqw;
-  font-weight: 800;
-  letter-spacing: -.05cqw
+  font-size: 3cqw;
+  font-weight: 600;
 }
 
 .report-chart-card>div>span {
@@ -1196,7 +1211,7 @@ button {
 }
 
 .report-section {
-  margin: 0 0 5cqw
+  margin: 0 0 3cqw
 }
 
 .report-section>h2 {
@@ -1204,7 +1219,6 @@ button {
   font-size: 3.8cqw;
   font-weight: 800;
   line-height: 1.15;
-  letter-spacing: -.06cqw
 }
 
 .report-grid {
@@ -1214,14 +1228,11 @@ button {
 }
 
 .report-metric-card {
-  min-height: 15.8cqw;
   border-radius: .85cqw;
   background: #242424;
-  padding: 3cqw 3cqw;
+  padding: 3.5cqw 3.5cqw;
   display: flex;
   flex-direction: column;
-  justify-content: center;
-  min-width: 0
 }
 
 .report-metric-card>span {
