@@ -745,7 +745,7 @@ async function openTrade() {
   const trade={openedAt:state.date+'T09:00',closedAt:state.date+'T10:00',direction:'Compra',commission:0,swap:0};
   card.classList.add('expanded');
   card.querySelector('[data-add-trade]').setAttribute('aria-expanded','true');
-  card.insertAdjacentHTML('beforeend','<form class="trade-edit-form" id="trade-form" data-new-trade-form>'+tradeFields(trade,account)+'<p data-trade-edit-notice role="status" hidden></p><button class="primary-button wide" value="save">Guardar operación</button></form>');
+  card.insertAdjacentHTML('beforeend','<form class="trade-edit-form" id="trade-form" data-new-trade-form>'+tradeFields(trade,account)+'<p data-trade-edit-notice role="status" hidden></p><button class="primary-button wide" value="save">GUARDAR OPERACIÓN</button></form>');
   const form=card.querySelector('form');
   bindTradeNet(form,account);
   form.addEventListener('submit',async event=>{
