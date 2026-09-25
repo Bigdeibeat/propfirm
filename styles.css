@@ -199,7 +199,7 @@ button {
 .app-header {
   flex: none;
   height: calc(14.3cqw + var(--safe-top));
-  padding: calc(5.4cqw + var(--safe-top)) max(5.5cqw, var(--safe-right)) 0 max(5.5cqw, var(--safe-left));
+  padding: calc(5.4cqw + var(--safe-top)) max(10px, var(--safe-right)) 0 max(10px, var(--safe-left));
   background: #000
 }
 
@@ -269,12 +269,12 @@ button {
   height: 100%;
   position: relative;
   min-width: 0;
-  padding: 0 max(5.5cqw, var(--safe-right)) 0 max(5.5cqw, var(--safe-left))
+  padding: 0 max(10px, var(--safe-right)) 0 max(10px, var(--safe-left))
 }
 
 .screen-page>.empty-account {
-  left: 5.5cqw;
-  right: 5.5cqw
+  left: max(10px, var(--safe-left));
+  right: max(10px, var(--safe-right))
 }
 
 .screen :is(.scroll-region, .journal-scroll, .history-scroll, .report-scroll, .detail-panel) {
@@ -455,7 +455,7 @@ button {
   bottom: 0;
   height: calc(8.3cqw + var(--safe-bottom));
   background: #000;
-  padding: 1.7cqw max(3cqw, var(--safe-right)) calc(1.7cqw + var(--safe-bottom)) max(3cqw, var(--safe-left));
+  padding: 1.7cqw max(10px, var(--safe-right)) calc(1.7cqw + var(--safe-bottom)) max(10px, var(--safe-left));
   display: grid;
   grid-template-columns: repeat(5, 1fr);
   z-index: 5

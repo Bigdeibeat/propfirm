@@ -92,10 +92,10 @@ function positionContent(root, context, focusSelection) {
   if (focusSelection) {
     const list = root.querySelector('.scroll-region');
     const selected = list?.querySelector('.selected');
-    if (list && context.view === 'daily' && context.dailyAnchor === today()) {
-      list.scrollTop = list.scrollHeight;
+    if (list) {
+      list.scrollTop = selected ? Math.max(0, selected.offsetTop) : 0;
       list.dataset.restoredTop = list.scrollTop;
-    } else if (selected) { list.scrollTop = Math.max(0, selected.offsetTop + selected.offsetHeight - list.clientHeight); list.dataset.restoredTop = list.scrollTop; }
+    }
   }
 }
 
@@ -105,14 +105,13 @@ function dailyView(account) {
   const days = [];
   const currentDate = today();
   const latest = state.dailyAnchor > currentDate ? currentDate : state.dailyAnchor;
-  let cursor = addDays(latest, -(state.loadedDays - 1));
-  for (let index = 0; index < state.loadedDays; index++) { if (cursor <= currentDate) days.push(cursor); cursor = addDays(cursor, 1); }
+  for (let index = 0; index < state.loadedDays; index++) days.push(addDays(latest, -index));
   const rows = days.map(date => {
     const item = daySummary(account, book(), date);
     const result = item.profit === null ? '-- ' + symbol(account.currency) + ' / -- %' : money(item.profit, account.currency, true) + ' / ' + percent(item.percentage, true);
     return '<button class="rapid-card ' + (date === state.date ? 'selected' : '') + '" data-select-date="' + date + '"><span class="rapid-date">' + esc(labelDate(date)) + '</span><span class="rapid-result ' + toneFor(item.profit) + '">' + result + '</span></button>';
   }).join('');
-  return '<div class="view daily-view"><div class="scroll-region" data-list="daily"><div class="list-loader">Desliza arriba para cargar días anteriores</div>' + rows + '</div>' + dailyDetail(account) + '</div>';
+  return '<div class="view daily-view"><div class="scroll-region" data-list="daily"><div class="list-loader">Desliza abajo para cargar días anteriores</div>' + rows + '</div>' + dailyDetail(account) + '</div>';
 }
 
 function dailyDetail(account) {
@@ -133,14 +132,13 @@ function dailyDetail(account) {
 
 function monthlyView(account) {
   const months = [];
-  let cursor = addMonths(state.monthAnchor, -(state.loadedMonths - 1));
-  for (let index = 0; index < state.loadedMonths; index++) { months.push(cursor); cursor = addMonths(cursor, 1); }
+  for (let index = 0; index < state.loadedMonths; index++) months.push(addMonths(state.monthAnchor, -index));
   const rows = months.map(month => {
     const item = monthSummary(account, book(), month);
     const result = item.profit === null ? '-- ' + symbol(account.currency) + ' / -- %' : money(item.profit, account.currency, true) + ' / ' + percent(item.percentage, true);
     return '<button class="rapid-card ' + (month === state.month ? 'selected' : '') + '" data-select-month="' + month + '"><span class="rapid-date">' + esc(monthLabel(month)) + '</span><span class="rapid-result ' + toneFor(item.profit) + '">' + result + '</span></button>';
   }).join('');
-  return '<div class="view monthly-view"><div class="scroll-region" data-list="months"><div class="list-loader">Desliza arriba para cargar meses anteriores</div>' + rows + '</div>' + monthlyDetail(account) + '</div>';
+  return '<div class="view monthly-view"><div class="scroll-region" data-list="months"><div class="list-loader">Desliza abajo para cargar meses anteriores</div>' + rows + '</div>' + monthlyDetail(account) + '</div>';
 }
 
 function monthlyDetail(account) {
@@ -540,14 +538,14 @@ function loadMore(list, direction) {
   const limit = daily ? today() : today().slice(0, 7);
   const batch = daily ? 7 : 4;
   const cap = daily ? 120 : 60;
-  const last = cards.at(-1).getAttribute(attribute);
+  const newest = cards[0].getAttribute(attribute);
   let added = batch;
-  if (direction > 0) {
+  if (direction < 0) {
     added = 0;
-    while (added < batch && add(last, added + 1) <= limit) added++;
+    while (added < batch && add(newest, added + 1) <= limit) added++;
     if (!added) return;
-    state[anchorKey] = add(last, added);
-  } else if (cards.length + added > cap) state[anchorKey] = add(last, -(cards.length + added - cap));
+    state[anchorKey] = add(newest, added);
+  } else if (cards.length + added > cap) state[anchorKey] = add(newest, -(cards.length + added - cap));
   state[countKey] = Math.min(cap, cards.length + added);
   const reference = cards.find(card => card.offsetTop + card.offsetHeight > list.scrollTop) || cards[0];
   const value = reference.getAttribute(attribute);
