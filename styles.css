@@ -354,13 +354,13 @@ button {
 }
 
 .rapid-date {
-  font-size: 3.5cqw;
+  font-size: 4.5cqw;
   font-weight: 600;
   white-space: nowrap
 }
 
 .rapid-result {
-  font-size: 2.3cqw;
+  font-size: 4.5cqw;
   white-space: nowrap
 }
 
@@ -428,12 +428,12 @@ button {
 }
 
 .metric span {
-  font-size: 3.5cqw;
+  font-size: 4.5cqw;
   font-weight: 500
 }
 
 .metric strong {
-  font-size: 3.5cqw;
+  font-size: 4.5cqw;
   font-weight: 400;
   text-align: right
 }
@@ -463,7 +463,7 @@ button {
 .nav-item {
   border: 0;
   background: none;
-  font-size: 2.7cqw;
+  font-size: 4cqw;
   white-space: nowrap
 }
 
@@ -738,7 +738,7 @@ button {
   padding: 0 2.3cqw;
   position: relative;
   color: #fff;
-  font-size: 2.7cqw;
+  font-size: 3cqw;
   white-space: nowrap;
 }
 
@@ -810,7 +810,7 @@ button {
 }
 
 .journal-day {
-  font-size: 3.7cqw;
+  font-size: 4cqw;
   margin: 3cqw 0 3cqw;
 }
 
@@ -857,7 +857,7 @@ button {
   border-radius: .85cqw;
   margin: 0 0 3cqw;
   overflow: hidden;
-  font-size: 3cqw;
+  font-size: 4cqw;
   line-height: 1.4;
   transition: border-color 160ms ease;
   border: 1px solid transparent
@@ -898,7 +898,7 @@ button {
 .trade-row-summary small {
   display: block;
   color: #aaa;
-  font-size: 2.6cqw
+  font-size: 3cqw
 }
 
 .trade-row-summary b {
@@ -941,7 +941,7 @@ button {
   }
 
   .phone :is(input, textarea, select) {
-    font-size: max(12px, 3.8cqw)
+    font-size: max(12px, 4cqw)
   }
 }
 
@@ -1098,7 +1098,7 @@ button {
 
 .report-heading h1 {
   margin: 0;
-  font-size: 3cqw;
+  font-size: 4cqw;
   font-weight: 800;
   line-height: 1.15;
 }
@@ -1115,7 +1115,7 @@ button {
 
 .report-summary>span {
   color: #fff;
-  font-size: 3cqw;
+  font-size: 4cqw;
   font-weight: 600;
 }
 
@@ -1155,13 +1155,13 @@ button {
 
 .report-chart-card h2 {
   margin: 0;
-  font-size: 3cqw;
+  font-size: 4cqw;
   font-weight: 600;
 }
 
 .report-chart-card>div>span {
   color: #fff;
-  font-size: 2.8cqw;
+  font-size: 3cqw;
   font-weight: 400;
   white-space: nowrap
 }
@@ -1217,7 +1217,7 @@ button {
 
 .report-section>h2 {
   margin: 0 0 3cqw;
-  font-size: 3.8cqw;
+  font-size: 4cqw;
   font-weight: 800;
   line-height: 1.15;
 }
@@ -1238,14 +1238,14 @@ button {
 
 .report-metric-card>span {
   color: #fff;
-  font-size: 3cqw;
+  font-size: 4cqw;
   font-weight: 600;
   line-height: 1
 }
 
 .report-metric-card>strong {
   margin-top: 1.2cqw;
-  font-size: 3.8cqw;
+  font-size: 4cqw;
   font-weight: 400;
   line-height: 1;
   overflow-wrap: anywhere
